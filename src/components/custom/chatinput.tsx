@@ -11,22 +11,23 @@ interface ChatInputProps {
     setQuestion: (question: string) => void;
     onSubmit: (text?: string) => void;
     isLoading: boolean;
+    isDisabled?: boolean;
 }
 
 const suggestedActions = [
     {
-        title: 'How is the weather',
-        label: 'in Vienna?',
-        action: 'How is the weather in Vienna today?',
+        title: 'Wie lange dauert die Bearbeitung ',
+        label: 'meines Antrags?',
+        action: 'Wie lange dauert die Bearbeitung meines meines Antrags?',
     },
     {
-        title: 'Tell me a fun fact',
-        label: 'about pandas',
-        action: 'Tell me an interesting fact about pandas',
+        title: 'Was ist der aktuelle Status',
+        label: 'meines Antrags?',
+        action: 'Was ist der aktuelle Status meines Antrags?',
     },
 ];
 
-export const ChatInput = ({ question, setQuestion, onSubmit, isLoading }: ChatInputProps) => {
+export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, isDisabled = false }: ChatInputProps) => {
     const [showSuggestions, setShowSuggestions] = useState(true);
 
     return(
@@ -44,7 +45,9 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading }: ChatIn
                     >
                         <Button
                             variant="ghost"
+                            disabled={isDisabled}
                             onClick={ () => {
+                                if (isDisabled) return;
                                 const text = suggestedAction.action;
                                 onSubmit(text);
                                 setShowSuggestions(false);
@@ -73,8 +76,10 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading }: ChatIn
             'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-xl text-base bg-muted',
         )}
         value={question}
+        disabled={isDisabled}
         onChange={(e) => setQuestion(e.target.value)}
         onKeyDown={(event) => {
+            if (isDisabled) return;
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
 
@@ -93,7 +98,7 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading }: ChatIn
         <Button 
             className="rounded-full p-1.5 h-fit absolute bottom-2 right-2 m-0.5 border dark:border-zinc-600"
             onClick={() => onSubmit(question)}
-            disabled={question.length === 0}
+            disabled={isDisabled || question.length === 0}
         >
             <ArrowUpIcon size={14} />
         </Button>

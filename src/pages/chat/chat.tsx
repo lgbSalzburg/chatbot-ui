@@ -5,6 +5,17 @@ import { useState, useRef } from "react";
 import { message } from "../../interfaces/interfaces"
 import { Overview } from "@/components/custom/overview";
 import { Header } from "@/components/custom/header";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {v4 as uuidv4} from 'uuid';
 
 //const socket = new WebSocket("ws://localhost:8090"); //change to your websocket endpoint
@@ -19,8 +30,45 @@ export function Chat() {
   const [messages, setMessages] = useState<message[]>([]);
   const [question, setQuestion] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState<boolean>(false);
+  const [isLoginPending, setIsLoginPending] = useState<boolean>(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
+  const [usedLoginPromptButtons, setUsedLoginPromptButtons] = useState<Record<string, boolean>>({});
+  const [loginModalText, setLoginModalText] = useState<string>("Der Server fordert einen Login an.");
+  const [loginUserid, setLoginUserid] = useState<string>("");
+  const [loginPassword, setLoginPassword] = useState<string>("");
+  const [loginError, setLoginError] = useState<string>("");
 
   const messageHandlerRef = useRef<((event: MessageEvent) => void) | null>(null);
+  const suppressNextLoginCancelRef = useRef<boolean>(false);
+
+  const getLoginRequestText = (rawData: unknown): string | null => {
+    if (typeof rawData !== "string") return null;
+
+    try {
+      const parsed = JSON.parse(rawData) as {
+        type?: string;
+        event?: string;
+        action?: string;
+        message?: string;
+        description?: string;
+      };
+
+      const eventType = (parsed.type || parsed.event || parsed.action || "").toLowerCase();
+      if (eventType.includes("login") && eventType.includes("request")) {
+        return parsed.description || parsed.message || "Der Server fordert einen Login an.";
+      }
+    } catch {
+      // Ignore parse errors and check text markers below.
+    }
+
+    const lowerRawData = rawData.toLowerCase();
+    if (lowerRawData.includes("login_request") || lowerRawData.includes("login request")) {
+      return rawData;
+    }
+
+    return null;
+  };
 
   const cleanupMessageHandler = () => {
     if (messageHandlerRef.current && socket) {
@@ -29,8 +77,51 @@ export function Chat() {
     }
   };
 
+  const showLoginPromptMessage = (loginRequestText: string) => {
+    const cleanedText = loginRequestText
+      .replace(/geben sie jetzt ihre userid ein\.?/gi, "")
+      .trim();
+
+    setMessages(prev => {
+      const nextPromptId = uuidv4();
+      setUsedLoginPromptButtons(current => {
+        const updated = { ...current };
+        for (const msg of prev) {
+          if (msg.role === "login_prompt") {
+            updated[msg.id] = true;
+          }
+        }
+        updated[nextPromptId] = false;
+        return updated;
+      });
+
+      return [...prev, { content: cleanedText, role: "login_prompt", id: nextPromptId }];
+    });
+  };
+
+  const updateLoginStateFromText = (text: string) => {
+    const lower = text.toLowerCase();
+    const isLogoutText =
+      /abgemeldet/.test(lower) ||
+      /ausgeloggt/.test(lower) ||
+      /logout erfolgreich/.test(lower);
+    const isLoginSuccessText =
+      (/angemeldet/.test(lower) || /login erfolgreich/.test(lower)) &&
+      !/nicht angemeldet/.test(lower) &&
+      !/fehlgeschlagen/.test(lower);
+
+    if (isLogoutText) {
+      setIsUserLoggedIn(false);
+      return;
+    }
+
+    if (isLoginSuccessText) {
+      setIsUserLoggedIn(true);
+    }
+  };
+
 async function handleSubmit(text?: string) {
-  if (!socket || socket.readyState !== WebSocket.OPEN || isLoading) return;
+  if (!socket || socket.readyState !== WebSocket.OPEN || isLoading || isLoginModalOpen || isLoginPending) return;
 
   const messageText = text || question;
   setIsLoading(true);
@@ -42,17 +133,34 @@ async function handleSubmit(text?: string) {
   setQuestion("");
 
   try {
+    let streamedAssistantText = "";
     const messageHandler = (event: MessageEvent) => {
-      setIsLoading(false);
-      if(event.data.includes("[END]")) {
+      const loginRequestText = getLoginRequestText(event.data);
+      if (loginRequestText) {
+        setIsLoading(false);
+        setIsLoginPending(true);
+        setLoginModalText(loginRequestText);
+        setLoginError("");
+        showLoginPromptMessage(loginRequestText);
+        cleanupMessageHandler();
         return;
       }
+
+      const eventData = typeof event.data === "string" ? event.data : "";
+      setIsLoading(false);
+      if(eventData.includes("[END]")) {
+        cleanupMessageHandler();
+        return;
+      }
+
+      streamedAssistantText += eventData;
+      updateLoginStateFromText(streamedAssistantText);
       
       setMessages(prev => {
         const lastMessage = prev[prev.length - 1];
         const newContent = lastMessage?.role === "assistant" 
-          ? lastMessage.content + event.data 
-          : event.data;
+          ? lastMessage.content + eventData
+          : eventData;
         
         const newMessage = { content: newContent, role: "assistant", id: traceId };
         return lastMessage?.role === "assistant"
@@ -60,9 +168,6 @@ async function handleSubmit(text?: string) {
           : [...prev, newMessage];
       });
 
-      if (event.data.includes("[END]")) {
-        cleanupMessageHandler();
-      }
     };
 
     messageHandlerRef.current = messageHandler;
@@ -73,13 +178,168 @@ async function handleSubmit(text?: string) {
   }
 }
 
+const sendAndCollectResponse = (payload: string): Promise<{ text: string; loginRequestText: string | null }> => {
+  return new Promise((resolve, reject) => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      reject(new Error("WebSocket is not connected."));
+      return;
+    }
+
+    let text = "";
+    const handler = (event: MessageEvent) => {
+      const loginRequestText = getLoginRequestText(event.data);
+      if (loginRequestText) {
+        socket.removeEventListener("message", handler);
+        resolve({ text: "", loginRequestText });
+        return;
+      }
+
+      const eventData = typeof event.data === "string" ? event.data : "";
+      if (eventData.includes("[END]")) {
+        socket.removeEventListener("message", handler);
+        resolve({ text: text.trim(), loginRequestText: null });
+        return;
+      }
+
+      text += eventData;
+    };
+
+    socket.addEventListener("message", handler);
+    socket.send(payload);
+  });
+};
+
+const cancelLoginProcess = async () => {
+  cleanupMessageHandler();
+  setLoginError("");
+  setLoginPassword("");
+  setIsLoginPending(false);
+
+  try {
+    const cancelResponse = await sendAndCollectResponse("__CANCEL_LOGIN__");
+    updateLoginStateFromText(cancelResponse.text);
+    if (cancelResponse.text) {
+      setMessages(prev => [...prev, { content: cancelResponse.text, role: "assistant", id: uuidv4() }]);
+    }
+  } catch (error) {
+    console.error("Login cancel via WebSocket failed:", error);
+  } finally {
+    // Keep chat usable even if backend cancel fails.
+    setIsLoginPending(false);
+  }
+};
+
+const handleLoginModalOpenChange = (open: boolean) => {
+  setIsLoginModalOpen(open);
+
+  if (open) return;
+
+  if (suppressNextLoginCancelRef.current) {
+    suppressNextLoginCancelRef.current = false;
+    return;
+  }
+
+  void cancelLoginProcess();
+};
+
+const handleLoginSubmit = async () => {
+  if (!socket || socket.readyState !== WebSocket.OPEN || isLoading) return;
+
+  const userid = loginUserid.trim();
+  if (!userid || !loginPassword) {
+    setLoginError("Bitte userid und Passwort eingeben.");
+    return;
+  }
+
+  setIsLoading(true);
+  setLoginError("");
+  cleanupMessageHandler();
+
+  try {
+    const useridResponse = await sendAndCollectResponse(userid);
+    if (useridResponse.loginRequestText) {
+      setIsLoginPending(true);
+      setLoginModalText(useridResponse.loginRequestText);
+      showLoginPromptMessage(useridResponse.loginRequestText);
+      setIsLoading(false);
+      return;
+    }
+
+    if (useridResponse.text) {
+      setLoginModalText(useridResponse.text);
+      updateLoginStateFromText(useridResponse.text);
+    }
+
+    if (!/passwort/i.test(useridResponse.text)) {
+      setIsLoading(false);
+      return;
+    }
+
+    const passwordResponse = await sendAndCollectResponse(loginPassword);
+    if (passwordResponse.loginRequestText) {
+      setIsLoginPending(true);
+      setLoginModalText(passwordResponse.loginRequestText);
+      showLoginPromptMessage(passwordResponse.loginRequestText);
+      setIsLoading(false);
+      return;
+    }
+
+    if (passwordResponse.text) {
+      setLoginModalText(passwordResponse.text);
+      updateLoginStateFromText(passwordResponse.text);
+      const isLoginFailureText =
+        /anmeldung fehlgeschlagen/i.test(passwordResponse.text) ||
+        /verbleibende versuche/i.test(passwordResponse.text);
+
+      if (!isLoginFailureText) {
+        setMessages(prev => [...prev, { content: passwordResponse.text, role: "assistant", id: uuidv4() }]);
+      }
+    }
+
+    setLoginPassword("");
+    if (/angemeldet/i.test(passwordResponse.text)) {
+      setIsUserLoggedIn(true);
+      setIsLoginPending(false);
+      suppressNextLoginCancelRef.current = true;
+      setIsLoginModalOpen(false);
+      setLoginUserid("");
+    }
+  } catch (error) {
+    console.error("Login via WebSocket failed:", error);
+    setLoginError("Login konnte nicht gesendet werden.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
   return (
     <div className="flex flex-col min-w-0 h-dvh bg-background">
       <Header/>
       <div className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4" ref={messagesContainerRef}>
         {messages.length == 0 && <Overview />}
-        {messages.map((message, index) => (
-          <PreviewMessage key={index} message={message} />
+        {messages.map((message) => (
+          message.role === "login_prompt" ? (
+            <div key={message.id} className="w-full mx-auto max-w-3xl px-4">
+              <div className="rounded-xl border bg-muted/30 p-4 flex flex-col gap-3">
+                <p className="text-sm">{message.content || "Bitte melden Sie sich an, um fortzufahren."}</p>
+                <div>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setUsedLoginPromptButtons(prev => ({ ...prev, [message.id]: true }));
+                      setLoginError("");
+                      setIsLoginModalOpen(true);
+                    }}
+                    disabled={isLoading || isUserLoggedIn || Boolean(usedLoginPromptButtons[message.id])}
+                  >
+                    Anmelden
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <PreviewMessage key={message.id} message={message} />
+          )
         ))}
         {isLoading && <ThinkingMessage />}
         <div ref={messagesEndRef} className="shrink-0 min-w-[24px] min-h-[24px]"/>
@@ -90,8 +350,51 @@ async function handleSubmit(text?: string) {
           setQuestion={setQuestion}
           onSubmit={handleSubmit}
           isLoading={isLoading}
+          isDisabled={isLoginPending || isLoginModalOpen}
         />
       </div>
+      <Dialog open={isLoginModalOpen} onOpenChange={handleLoginModalOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Login erforderlich</DialogTitle>
+            <DialogDescription>{loginModalText}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="login-userid">Username / UserID</Label>
+              <Input
+                id="login-userid"
+                placeholder="z. B. 12345"
+                value={loginUserid}
+                onChange={(event) => setLoginUserid(event.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="login-password">Passwort</Label>
+              <Input
+                id="login-password"
+                type="password"
+                value={loginPassword}
+                onChange={(event) => setLoginPassword(event.target.value)}
+                disabled={isLoading}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void handleLoginSubmit();
+                  }
+                }}
+              />
+            </div>
+            {loginError ? <p className="text-sm text-destructive">{loginError}</p> : null}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => void handleLoginSubmit()} disabled={isLoading}>
+              {isLoading ? "Anmeldung..." : "Anmelden"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

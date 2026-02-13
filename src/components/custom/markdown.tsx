@@ -104,6 +104,13 @@ const NonMemoizedMarkdown = ({ children }: { children: string }) => {
         </h6>
       );
     },
+    p: ({ node, children, ...props }: any) => {
+      return (
+        <p className="whitespace-pre-wrap" {...props}>
+          {children}
+        </p>
+      );
+    },
   };
 
   return (

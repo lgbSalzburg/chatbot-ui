@@ -5,9 +5,10 @@ import { message } from "../../interfaces/interfaces"
 
 interface MessageActionsProps {
   message: message
+  copyOnly?: boolean
 }
 
-export function MessageActions({ message }: MessageActionsProps) {
+export function MessageActions({ message, copyOnly = false }: MessageActionsProps) {
   const [copied, setCopied] = useState(false)
   const [liked, setLiked] = useState(false)
   const [disliked, setDisliked] = useState(false)
@@ -43,12 +44,16 @@ export function MessageActions({ message }: MessageActionsProps) {
             <Copy className="text-gray-500" size={16} />
         )}
       </Button>
-      <Button variant="ghost" size="icon" onClick={handleLike}>
-        <ThumbsUp className={liked ? "text-black dark:text-white" : "text-gray-500"} size={16} />
-      </Button>
-      <Button variant="ghost" size="icon" onClick={handleDislike}>
-        <ThumbsDown className={disliked ? "text-black dark:text-white" : "text-gray-500"} size={16} />
-      </Button>
+      {!copyOnly && (
+        <>
+          <Button variant="ghost" size="icon" onClick={handleLike}>
+            <ThumbsUp className={liked ? "text-black dark:text-white" : "text-gray-500"} size={16} />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={handleDislike}>
+            <ThumbsDown className={disliked ? "text-black dark:text-white" : "text-gray-500"} size={16} />
+          </Button>
+        </>
+      )}
     </div>
   )
 }

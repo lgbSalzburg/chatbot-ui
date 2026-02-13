@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { cx } from 'classix';
 import { SparklesIcon } from './icons';
 import { Markdown } from './markdown';
@@ -32,9 +31,8 @@ export const PreviewMessage = ({ message }: { message: message; }) => {
               <Markdown>{message.content}</Markdown>
             </div>
           )}
-
           {message.role === 'assistant' && (
-            <MessageActions message={message} />
+            <MessageActions message={message} copyOnly />
           )}
         </div>
       </div>
