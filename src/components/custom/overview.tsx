@@ -2,6 +2,8 @@ import { motion } from 'framer-motion';
 import { MessageCircle, BotIcon } from 'lucide-react';
 
 export const Overview = () => {
+  const isPort8501 = typeof window !== "undefined" && window.location.port === "8501";
+
   return (
     <>
     <motion.div
@@ -19,9 +21,15 @@ export const Overview = () => {
           <MessageCircle size={44}/>
         </p>
         <p>
-          Welcome to <strong>chatbot-ui</strong><br />
-          a open source template made by<br />
-          <strong>Leon Binder</strong> and <strong>Christoph Handschuh</strong>.
+          Willkommen beim Chatbot für Fragen zum <strong>Heizkostenzuschuss</strong><br />
+          {isPort8501 ? (
+            <>Dieser Chatbot ist LLM basiert<br /></>
+          ) : (
+            <>
+              Dieser Chatbot basiert auf Regeln<br />
+            </>
+          )}
+          {/* <strong>Leon Binder</strong> and <strong>Christoph Handschuh</strong>. */}
         </p>
       </div>
     </motion.div>

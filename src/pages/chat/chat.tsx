@@ -23,7 +23,9 @@ import {v4 as uuidv4} from 'uuid';
 // get the device (instance)'s websocket endpoint
 const proto = window.location.protocol === "https:" ? "wss" : "ws";
 const host = window.location.hostname;
-const socket = new WebSocket(`${proto}://${host}:8090`);
+const frontendPort = window.location.port;
+const socketPort = frontendPort === "8502" ? "8091" : "8090";
+const socket = new WebSocket(`${proto}://${host}:${socketPort}`);
 
 export function Chat() {
   const [messagesContainerRef, messagesEndRef] = useScrollToBottom<HTMLDivElement>();
@@ -68,6 +70,68 @@ export function Chat() {
     }
 
     return null;
+  };
+
+  const getSuggestedIntents = (rawData: unknown): string[] | null => {
+    if (typeof rawData !== "string") return null;
+
+    try {
+      const parsed = JSON.parse(rawData) as {
+        type?: string;
+        event?: string;
+        action?: string;
+        items?: unknown;
+        suggested_intents?: unknown;
+      };
+      const eventType = (parsed.type || parsed.event || parsed.action || "").toLowerCase();
+      const isSuggestedIntentsEvent =
+        eventType === "suggested_intents" ||
+        (eventType.includes("suggested") && eventType.includes("intent"));
+      if (!isSuggestedIntentsEvent) return null;
+
+      const source = parsed.items ?? parsed.suggested_intents;
+      if (!Array.isArray(source)) return [];
+
+      const suggestions = source
+        .map((entry) => {
+          if (typeof entry === "string") return entry.trim();
+          if (entry && typeof entry === "object" && "description" in entry) {
+            const value = (entry as { description?: unknown }).description;
+            return typeof value === "string" ? value.trim() : "";
+          }
+          return "";
+        })
+        .filter((entry) => entry.length > 0);
+
+      return suggestions;
+    } catch {
+      return null;
+    }
+  };
+
+  const isLoginSuccessResponse = (rawData: unknown): boolean => {
+    if (typeof rawData !== "string") return false;
+
+    try {
+      const parsed = JSON.parse(rawData) as {
+        type?: string;
+        event?: string;
+        action?: string;
+      };
+      const eventType = (parsed.type || parsed.event || parsed.action || "").toLowerCase();
+      return eventType === "login_success" || (eventType.includes("login") && eventType.includes("success"));
+    } catch {
+      return false;
+    }
+  };
+
+  const closeLoginModalOnSuccess = () => {
+    setIsUserLoggedIn(true);
+    setIsLoginPending(false);
+    setLoginError("");
+    setLoginPassword("");
+    suppressNextLoginCancelRef.current = true;
+    setIsLoginModalOpen(false);
   };
 
   const cleanupMessageHandler = () => {
@@ -120,6 +184,15 @@ export function Chat() {
     }
   };
 
+  const isLoginSuccessText = (text: string) => {
+    const lower = text.toLowerCase();
+    return (
+      (/angemeldet/.test(lower) || /login erfolgreich/.test(lower)) &&
+      !/nicht angemeldet/.test(lower) &&
+      !/fehlgeschlagen/.test(lower)
+    );
+  };
+
 async function handleSubmit(text?: string) {
   if (!socket || socket.readyState !== WebSocket.OPEN || isLoading || isLoginModalOpen || isLoginPending) return;
 
@@ -135,6 +208,11 @@ async function handleSubmit(text?: string) {
   try {
     let streamedAssistantText = "";
     const messageHandler = (event: MessageEvent) => {
+      if (isLoginSuccessResponse(event.data)) {
+        closeLoginModalOnSuccess();
+        return;
+      }
+
       const loginRequestText = getLoginRequestText(event.data);
       if (loginRequestText) {
         setIsLoading(false);
@@ -146,11 +224,26 @@ async function handleSubmit(text?: string) {
         return;
       }
 
+      const suggestedIntents = getSuggestedIntents(event.data);
+      if (suggestedIntents) {
+        if (suggestedIntents.length > 0) {
+          setMessages(prev => [
+            ...prev,
+            { content: "", role: "suggested_intents", id: uuidv4(), suggestions: suggestedIntents },
+          ]);
+        }
+        return;
+      }
+
       const eventData = typeof event.data === "string" ? event.data : "";
       setIsLoading(false);
       if(eventData.includes("[END]")) {
         cleanupMessageHandler();
         return;
+      }
+
+      if (isLoginSuccessText(eventData)) {
+        closeLoginModalOnSuccess();
       }
 
       streamedAssistantText += eventData;
@@ -187,10 +280,20 @@ const sendAndCollectResponse = (payload: string): Promise<{ text: string; loginR
 
     let text = "";
     const handler = (event: MessageEvent) => {
+      if (isLoginSuccessResponse(event.data)) {
+        closeLoginModalOnSuccess();
+        return;
+      }
+
       const loginRequestText = getLoginRequestText(event.data);
       if (loginRequestText) {
         socket.removeEventListener("message", handler);
         resolve({ text: "", loginRequestText });
+        return;
+      }
+
+      const suggestedIntents = getSuggestedIntents(event.data);
+      if (suggestedIntents) {
         return;
       }
 
@@ -199,6 +302,10 @@ const sendAndCollectResponse = (payload: string): Promise<{ text: string; loginR
         socket.removeEventListener("message", handler);
         resolve({ text: text.trim(), loginRequestText: null });
         return;
+      }
+
+      if (isLoginSuccessText(eventData)) {
+        closeLoginModalOnSuccess();
       }
 
       text += eventData;
@@ -334,6 +441,27 @@ const handleLoginSubmit = async () => {
                   >
                     Anmelden
                   </Button>
+                </div>
+              </div>
+            </div>
+          ) : message.role === "suggested_intents" ? (
+            <div key={message.id} className="w-full mx-auto max-w-3xl px-4">
+              <div className="rounded-xl border bg-muted/30 p-4 flex flex-col gap-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Vorschläge
+                </p>
+                <div className="flex flex-wrap gap-2">
+                {(message.suggestions || []).map((suggestion, index) => (
+                  <button
+                    key={`${message.id}-${index}`}
+                    type="button"
+                    className="rounded-full border border-border bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => void handleSubmit(suggestion)}
+                    disabled={isLoading || isLoginPending || isLoginModalOpen}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
                 </div>
               </div>
             </div>
