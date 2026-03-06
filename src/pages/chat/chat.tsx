@@ -33,6 +33,7 @@ export function Chat() {
   const [question, setQuestion] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isUserLoggedIn, setIsUserLoggedIn] = useState<boolean>(false);
+  const [loggedInUserName, setLoggedInUserName] = useState<string>("");
   const [isLoginPending, setIsLoginPending] = useState<boolean>(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
   const [usedLoginPromptButtons, setUsedLoginPromptButtons] = useState<Record<string, boolean>>({});
@@ -40,9 +41,11 @@ export function Chat() {
   const [loginUserid, setLoginUserid] = useState<string>("");
   const [loginPassword, setLoginPassword] = useState<string>("");
   const [loginError, setLoginError] = useState<string>("");
+  const [resetSuggestionsSignal, setResetSuggestionsSignal] = useState<number>(0);
 
   const messageHandlerRef = useRef<((event: MessageEvent) => void) | null>(null);
   const suppressNextLoginCancelRef = useRef<boolean>(false);
+  const lastLoginPromptIdRef = useRef<string | null>(null);
 
   const getLoginRequestText = (rawData: unknown): string | null => {
     if (typeof rawData !== "string") return null;
@@ -109,7 +112,28 @@ export function Chat() {
     }
   };
 
-  const isLoginSuccessResponse = (rawData: unknown): boolean => {
+  const getLoginSuccessName = (rawData: unknown): string | undefined => {
+    if (typeof rawData !== "string") return undefined;
+
+    try {
+      const parsed = JSON.parse(rawData) as {
+        type?: string;
+        event?: string;
+        action?: string;
+        name?: unknown;
+      };
+      const eventType = (parsed.type || parsed.event || parsed.action || "").toLowerCase();
+      const isLoginSuccess =
+        eventType === "login_success" || (eventType.includes("login") && eventType.includes("success"));
+      if (!isLoginSuccess) return undefined;
+      if (typeof parsed.name === "string") return parsed.name.trim();
+      return "";
+    } catch {
+      return undefined;
+    }
+  };
+
+  const isLogoutSuccessResponse = (rawData: unknown): boolean => {
     if (typeof rawData !== "string") return false;
 
     try {
@@ -119,14 +143,39 @@ export function Chat() {
         action?: string;
       };
       const eventType = (parsed.type || parsed.event || parsed.action || "").toLowerCase();
-      return eventType === "login_success" || (eventType.includes("login") && eventType.includes("success"));
+      return eventType === "logout_success" || (eventType.includes("logout") && eventType.includes("success"));
     } catch {
       return false;
     }
   };
 
-  const closeLoginModalOnSuccess = () => {
+  const getAuthState = (rawData: unknown): { authenticated: boolean; name: string } | null => {
+    if (typeof rawData !== "string") return null;
+
+    try {
+      const parsed = JSON.parse(rawData) as {
+        type?: string;
+        event?: string;
+        action?: string;
+        authenticated?: unknown;
+        name?: unknown;
+      };
+      const eventType = (parsed.type || parsed.event || parsed.action || "").toLowerCase();
+      if (eventType !== "auth_state") return null;
+
+      const authenticated = Boolean(parsed.authenticated);
+      const name = typeof parsed.name === "string" ? parsed.name.trim() : "";
+      return { authenticated, name };
+    } catch {
+      return null;
+    }
+  };
+
+  const closeLoginModalOnSuccess = (name?: string) => {
     setIsUserLoggedIn(true);
+    if (name && name.trim()) {
+      setLoggedInUserName(name.trim());
+    }
     setIsLoginPending(false);
     setLoginError("");
     setLoginPassword("");
@@ -148,6 +197,7 @@ export function Chat() {
 
     setMessages(prev => {
       const nextPromptId = uuidv4();
+      lastLoginPromptIdRef.current = nextPromptId;
       setUsedLoginPromptButtons(current => {
         const updated = { ...current };
         for (const msg of prev) {
@@ -163,6 +213,23 @@ export function Chat() {
     });
   };
 
+  const reactivateLastLoginPromptButton = () => {
+    const lastPromptId = lastLoginPromptIdRef.current;
+    if (!lastPromptId) return;
+
+    setUsedLoginPromptButtons(current => ({
+      ...current,
+      [lastPromptId]: false,
+    }));
+  };
+
+  const handleLoggedOutState = () => {
+    setIsUserLoggedIn(false);
+    setLoggedInUserName("");
+    reactivateLastLoginPromptButton();
+    setResetSuggestionsSignal((value) => value + 1);
+  };
+
   const updateLoginStateFromText = (text: string) => {
     const lower = text.toLowerCase();
     const isLogoutText =
@@ -175,7 +242,7 @@ export function Chat() {
       !/fehlgeschlagen/.test(lower);
 
     if (isLogoutText) {
-      setIsUserLoggedIn(false);
+      handleLoggedOutState();
       return;
     }
 
@@ -208,8 +275,24 @@ async function handleSubmit(text?: string) {
   try {
     let streamedAssistantText = "";
     const messageHandler = (event: MessageEvent) => {
-      if (isLoginSuccessResponse(event.data)) {
-        closeLoginModalOnSuccess();
+      const authState = getAuthState(event.data);
+      if (authState) {
+        setIsUserLoggedIn(authState.authenticated);
+        setLoggedInUserName(authState.authenticated ? authState.name : "");
+        if (!authState.authenticated) {
+          handleLoggedOutState();
+        }
+        return;
+      }
+
+      const loginSuccessName = getLoginSuccessName(event.data);
+      if (loginSuccessName !== undefined) {
+        closeLoginModalOnSuccess(loginSuccessName);
+        return;
+      }
+
+      if (isLogoutSuccessResponse(event.data)) {
+        handleLoggedOutState();
         return;
       }
 
@@ -280,8 +363,24 @@ const sendAndCollectResponse = (payload: string): Promise<{ text: string; loginR
 
     let text = "";
     const handler = (event: MessageEvent) => {
-      if (isLoginSuccessResponse(event.data)) {
-        closeLoginModalOnSuccess();
+      const authState = getAuthState(event.data);
+      if (authState) {
+        setIsUserLoggedIn(authState.authenticated);
+        setLoggedInUserName(authState.authenticated ? authState.name : "");
+        if (!authState.authenticated) {
+          handleLoggedOutState();
+        }
+        return;
+      }
+
+      const loginSuccessName = getLoginSuccessName(event.data);
+      if (loginSuccessName !== undefined) {
+        closeLoginModalOnSuccess(loginSuccessName);
+        return;
+      }
+
+      if (isLogoutSuccessResponse(event.data)) {
+        handleLoggedOutState();
         return;
       }
 
@@ -347,6 +446,11 @@ const handleLoginModalOpenChange = (open: boolean) => {
   }
 
   void cancelLoginProcess();
+};
+
+const handleLogout = async () => {
+  if (!isUserLoggedIn) return;
+  await handleSubmit("logout");
 };
 
 const handleLoginSubmit = async () => {
@@ -421,7 +525,12 @@ const handleLoginSubmit = async () => {
 
   return (
     <div className="flex flex-col min-w-0 h-dvh bg-background">
-      <Header/>
+      <Header
+        isLoggedIn={isUserLoggedIn}
+        userName={loggedInUserName}
+        onLogout={() => void handleLogout()}
+        logoutDisabled={isLoading || isLoginModalOpen || isLoginPending}
+      />
       <div className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4" ref={messagesContainerRef}>
         {messages.length == 0 && <Overview />}
         {messages.map((message) => (
@@ -479,6 +588,7 @@ const handleLoginSubmit = async () => {
           onSubmit={handleSubmit}
           isLoading={isLoading}
           isDisabled={isLoginPending || isLoginModalOpen}
+          resetSuggestionsSignal={resetSuggestionsSignal}
         />
       </div>
       <Dialog open={isLoginModalOpen} onOpenChange={handleLoginModalOpenChange}>
