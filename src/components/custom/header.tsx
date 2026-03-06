@@ -19,7 +19,7 @@ export const Header = ({ isLoggedIn, userName, onLogout, logoutDisabled = false 
 
   return (
     <>
-      <header className="flex items-center justify-between px-2 sm:px-4 py-2 bg-background text-black dark:text-white w-full">
+      <header className="flex items-center justify-between px-2 sm:px-4 py-2 bg-transparent text-black dark:text-white w-full">
         <div className="flex items-center space-x-2 sm:space-x-3">
           <ThemeToggle />
           {isLoggedIn ? (
