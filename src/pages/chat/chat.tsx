@@ -536,7 +536,7 @@ const handleLoginSubmit = async () => {
         {messages.map((message) => (
           message.role === "login_prompt" ? (
             <div key={message.id} className="w-full mx-auto max-w-3xl px-4">
-              <div className="rounded-xl border bg-muted/30 p-4 flex flex-col gap-3">
+              <div className="rounded-xl border bg-muted/70 p-4 flex flex-col gap-3">
                 <p className="text-base">{message.content || "Bitte melden Sie sich an, um fortzufahren."}</p>
                 <div>
                   <Button
@@ -555,8 +555,8 @@ const handleLoginSubmit = async () => {
             </div>
           ) : message.role === "suggested_intents" ? (
             <div key={message.id} className="w-full mx-auto max-w-3xl px-4">
-              <div className="rounded-xl border bg-muted/30 p-4 flex flex-col gap-3">
-                <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              <div className="rounded-xl border bg-muted/70 p-4 flex flex-col gap-3">
+                <p className="text-sm font-medium uppercase tracking-wide text-foreground">
                   Vorschläge
                 </p>
                 <div className="flex flex-wrap gap-2">

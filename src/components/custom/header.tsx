@@ -23,7 +23,7 @@ export const Header = ({ isLoggedIn, userName, onLogout, logoutDisabled = false 
         <div className="flex items-center space-x-2 sm:space-x-3">
           <ThemeToggle />
           {isLoggedIn ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <span className="text-xs sm:text-sm font-medium">
                 Eingeloggt als {userName || "User"}
               </span>
@@ -31,6 +31,7 @@ export const Header = ({ isLoggedIn, userName, onLogout, logoutDisabled = false 
                 type="button"
                 variant="outline"
                 size="sm"
+                className="h-8 px-2 text-xs"
                 onClick={onLogout}
                 disabled={logoutDisabled}
               >
