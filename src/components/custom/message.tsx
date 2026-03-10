@@ -16,7 +16,9 @@ export const PreviewMessage = ({ message }: { message: message; }) => {
     >
       <div
         className={cx(
-          'group-data-[role=user]/message:bg-zinc-700 dark:group-data-[role=user]/message:bg-muted group-data-[role=user]/message:text-white flex gap-4 group-data-[role=user]/message:px-3 w-full group-data-[role=user]/message:w-fit group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:py-2 rounded-xl'
+          'flex gap-4 w-full max-w-2xl py-3 px-4 rounded-xl border border-border bg-background/90',
+          'group-data-[role=user]/message:w-fit group-data-[role=user]/message:ml-auto',
+          'group-data-[role=user]/message:bg-zinc-700 dark:group-data-[role=user]/message:bg-muted group-data-[role=user]/message:text-white'
         )}
       >
         {message.role === 'assistant' && (
@@ -27,7 +29,7 @@ export const PreviewMessage = ({ message }: { message: message; }) => {
 
         <div className="flex flex-col w-full">
           {message.content && (
-            <div className="flex flex-col gap-4 text-left">
+            <div className="flex flex-col gap-4 text-left text-lg">
               <Markdown>{message.content}</Markdown>
             </div>
           )}
@@ -52,7 +54,8 @@ export const ThinkingMessage = () => {
     >
       <div
         className={cx(
-          'flex gap-4 group-data-[role=user]/message:px-3 w-full group-data-[role=user]/message:w-fit group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:py-2 rounded-xl',
+          'flex gap-4 w-full max-w-2xl py-3 px-4 rounded-xl border border-border bg-background/90',
+          'group-data-[role=user]/message:w-fit group-data-[role=user]/message:ml-auto',
           'group-data-[role=user]/message:bg-muted'
         )}
       >

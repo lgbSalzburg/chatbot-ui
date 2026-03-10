@@ -93,7 +93,7 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, isDisabl
                     className={index > 1 ? 'hidden sm:block' : 'block'}
                     >
                         <Button
-                            variant="ghost"
+                            variant="secondary"
                             disabled={isDisabled || isLoading}
                             onClick={ () => {
                                 if (isDisabled || isLoading) return;
@@ -121,7 +121,7 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, isDisabl
                                 );
                                 setNextSuggestionCursor((replacementIndex + 1) % total);
                             }}
-                            className="text-left border rounded-xl px-4 py-3.5 text-sm flex-1 gap-1 sm:flex-col w-full h-auto justify-start items-start"
+                            className="text-left border rounded-xl px-4 py-3.5 text-base flex-1 gap-1 sm:flex-col w-full h-auto justify-start items-start"
                         >
                             <span className="font-medium whitespace-pre-line">{suggestedAction.title}</span>
                             <span className="text-muted-foreground">
@@ -141,7 +141,7 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, isDisabl
         <Textarea
         placeholder="Send a message..."
         className={cx(
-            'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-xl text-base bg-muted',
+            'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-xl text-lg bg-muted',
         )}
         value={question}
         disabled={isDisabled}

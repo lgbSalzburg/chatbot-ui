@@ -524,7 +524,7 @@ const handleLoginSubmit = async () => {
 };
 
   return (
-    <div className="flex flex-col min-w-0 h-dvh bg-background">
+    <div className="flex flex-col min-w-0 h-dvh bg-transparent">
       <Header
         isLoggedIn={isUserLoggedIn}
         userName={loggedInUserName}
@@ -537,7 +537,7 @@ const handleLoginSubmit = async () => {
           message.role === "login_prompt" ? (
             <div key={message.id} className="w-full mx-auto max-w-3xl px-4">
               <div className="rounded-xl border bg-muted/30 p-4 flex flex-col gap-3">
-                <p className="text-sm">{message.content || "Bitte melden Sie sich an, um fortzufahren."}</p>
+                <p className="text-base">{message.content || "Bitte melden Sie sich an, um fortzufahren."}</p>
                 <div>
                   <Button
                     type="button"
@@ -556,7 +556,7 @@ const handleLoginSubmit = async () => {
           ) : message.role === "suggested_intents" ? (
             <div key={message.id} className="w-full mx-auto max-w-3xl px-4">
               <div className="rounded-xl border bg-muted/30 p-4 flex flex-col gap-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
                   Vorschläge
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -564,7 +564,7 @@ const handleLoginSubmit = async () => {
                   <button
                     key={`${message.id}-${index}`}
                     type="button"
-                    className="rounded-full border border-border bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-full border border-border bg-background px-4 py-2 text-base font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => void handleSubmit(suggestion)}
                     disabled={isLoading || isLoginPending || isLoginModalOpen}
                   >
@@ -581,7 +581,7 @@ const handleLoginSubmit = async () => {
         {isLoading && <ThinkingMessage />}
         <div ref={messagesEndRef} className="shrink-0 min-w-[24px] min-h-[24px]"/>
       </div>
-      <div className="flex mx-auto px-4 bg-background pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
+      <div className="flex mx-auto px-4 bg-transparent pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
         <ChatInput  
           question={question}
           setQuestion={setQuestion}
@@ -624,7 +624,7 @@ const handleLoginSubmit = async () => {
                 }}
               />
             </div>
-            {loginError ? <p className="text-sm text-destructive">{loginError}</p> : null}
+            {loginError ? <p className="text-base text-destructive">{loginError}</p> : null}
           </div>
           <DialogFooter>
             <Button onClick={() => void handleLoginSubmit()} disabled={isLoading}>
