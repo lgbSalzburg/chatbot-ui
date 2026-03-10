@@ -5,7 +5,7 @@ import headerLogoLight from "@/assets/logos/Logo_4c_schwarze_Schrift.png";
 import headerLogoDark from "@/assets/logos/Logo_weiss.png";
 import partnerLogoLight from "@/assets/logos/Logo Co-Branding_ Gefördert von_pos.png";
 import partnerLogoDark from "@/assets/logos/Logo Co-Branding_ Gefördert von_neg.png";
-import rapidLogo from "@/assets/logos/RAPID Logo(2).png";
+import rapidLogo from "@/assets/logos/RAPID_logo[entwurf1.1.3].png";
 
 type HeaderProps = {
   isLoggedIn: boolean;
@@ -43,7 +43,7 @@ export const Header = ({ isLoggedIn, userName, onLogout, logoutDisabled = false 
            <img
             src={rapidLogo}
             alt="Rapid logo"
-            className="h-12 sm:h-14 w-auto object-contain"
+            className="h-16 sm:h-18 w-auto object-contain"
           />
           <img
             src={isDarkMode ? headerLogoDark : headerLogoLight}
