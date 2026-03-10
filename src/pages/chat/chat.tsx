@@ -537,7 +537,7 @@ const handleLoginSubmit = async () => {
           message.role === "login_prompt" ? (
             <div key={message.id} className="w-full mx-auto max-w-3xl px-4">
               <div className="rounded-xl border bg-muted/30 p-4 flex flex-col gap-3">
-                <p className="text-sm">{message.content || "Bitte melden Sie sich an, um fortzufahren."}</p>
+                <p className="text-base">{message.content || "Bitte melden Sie sich an, um fortzufahren."}</p>
                 <div>
                   <Button
                     type="button"
@@ -556,7 +556,7 @@ const handleLoginSubmit = async () => {
           ) : message.role === "suggested_intents" ? (
             <div key={message.id} className="w-full mx-auto max-w-3xl px-4">
               <div className="rounded-xl border bg-muted/30 p-4 flex flex-col gap-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
                   Vorschläge
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -564,7 +564,7 @@ const handleLoginSubmit = async () => {
                   <button
                     key={`${message.id}-${index}`}
                     type="button"
-                    className="rounded-full border border-border bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-full border border-border bg-background px-4 py-2 text-base font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => void handleSubmit(suggestion)}
                     disabled={isLoading || isLoginPending || isLoginModalOpen}
                   >
@@ -624,7 +624,7 @@ const handleLoginSubmit = async () => {
                 }}
               />
             </div>
-            {loginError ? <p className="text-sm text-destructive">{loginError}</p> : null}
+            {loginError ? <p className="text-base text-destructive">{loginError}</p> : null}
           </div>
           <DialogFooter>
             <Button onClick={() => void handleLoginSubmit()} disabled={isLoading}>

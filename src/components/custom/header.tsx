@@ -19,7 +19,7 @@ export const Header = ({ isLoggedIn, userName, onLogout, logoutDisabled = false 
 
   return (
     <>
-      <header className="flex items-center justify-between px-2 sm:px-4 py-2 bg-transparent text-black dark:text-white w-full">
+      <header className="relative flex items-center justify-between px-2 sm:px-4 py-2 bg-white text-black dark:text-white w-full dark:bg-black">
         <div className="flex items-center space-x-2 sm:space-x-3">
           <ThemeToggle />
           {isLoggedIn ? (
@@ -55,6 +55,9 @@ export const Header = ({ isLoggedIn, userName, onLogout, logoutDisabled = false 
             alt="Partner logo"
             className="h-12 sm:h-14 w-auto object-contain"
           />
+        </div>
+        <div className="pointer-events-none absolute left-1/2 -translate-x-1/2">
+          <span className="text-[#78206e] text-3xl font-bold">KIVeSS</span>
         </div>
       </header>
     </>

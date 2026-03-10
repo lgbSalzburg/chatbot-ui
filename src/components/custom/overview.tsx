@@ -14,14 +14,14 @@ export const Overview = () => {
       exit={{ opacity: 0, scale: 0.98 }}
       transition={{ delay: 0.75 }}
     >
-      <div className="rounded-xl p-6 flex flex-col gap-8 leading-relaxed text-center max-w-xl">
+      <div className="rounded-xl border border-border bg-background/100 p-6 flex flex-col gap-8 leading-relaxed text-center max-w-xl">
         <p className="flex flex-row justify-center gap-4 items-center">
           <BotIcon size={44}/>
           <span>+</span>
           <MessageCircle size={44}/>
         </p>
-        <p>
-          Willkommen beim Chatbot für Fragen zum <strong>Heizkostenzuschuss</strong><br />
+        <p className="text-xl">
+          <span className="text-2xl">Willkommen bei <span className="text-[#78206e] font-bold">KIVeSS</span>, </span><br />der  <span className="text-[#78206e] font-bold">K</span>ünstlichen <span className="text-[#78206e] font-bold">I</span>ntelligenz für <span className="text-[#78206e] font-bold">Ve</span>rwaltungsverfahren:<br /> <span className="text-[#78206e] font-bold">s</span>ouverän und <span className="text-[#78206e] font-bold">s</span>icher<br /><br />
           {isPort8501 ? (
             <>Dieser Chatbot ist LLM basiert<br /></>
           ) : (
